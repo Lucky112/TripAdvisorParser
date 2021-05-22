@@ -38,6 +38,11 @@ def get_review_ratings_from(tree):
             ratings.append((box.get('data-value'), value[0].text))
     return ratings
 
+def get_rating(node):
+  for i, k in enumerate((10, 20, 30, 40, 50)):
+    rate = node.xpath(f'.//*[@class="ui_bubble_rating bubble_{k}"]')
+    if len(rate) > 0:
+      return i+1
 
 def get_review_from(tree):
     review_list = []
@@ -59,6 +64,8 @@ def get_review_from(tree):
             if len(visit) == 2 :
                 visit_date = visit[1]
 
+        rating = get_rating(f)
+
         usefull_count = None
         usefull = review.xpath('.//*[@class="numHelp "]')
         if len(usefull) > 0:
@@ -66,7 +73,7 @@ def get_review_from(tree):
             if usefull:
                 usefull_count = usefull.split()[0]
 
-        review_list.append((id, visit_date, review_text, usefull_count))
+        review_list.append((id, visit_date, review_text, rating, usefull_count))
     return review_list
 
 
