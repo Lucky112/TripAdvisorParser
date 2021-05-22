@@ -1,5 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
+#!/usr/bin/env python3.7
+
+import time
+import asyncio
+import aiohttp
+from numpy.core.numeric import full
 import pandas as pd
 from lxml import html
 from lxml import etree
@@ -72,29 +76,43 @@ def get_review_from(tree):
     return review_list
 
 
+async def get(i, url, session):
+    try:
+        async with session.get(url=url) as response:
+            resp = await response.read()
+            htmltext = resp.decode('utf-8')
+            # print("Successfully got url {} with resp of length {}.".format(url, len(htmltext)))
+            parser = html.HTMLParser(recover=True, encoding='utf-8')
+            tree = etree.fromstring(htmltext, parser)
+            res = (url, get_review_ratings_from(tree), get_review_from(tree))
+            print(f'{i} completed')
+            return res
+
+    except Exception as e:
+        print("Unable to get url {} due to {}.".format(url, e.__class__))
+
+async def process(k, urls):
+    print(f"processing batch {k}")
+    async with aiohttp.ClientSession() as session:
+        ret = await asyncio.gather(*[get(i, 'https://www.tripadvisor.com' + url, session) for i, url in enumerate(urls)])
+
+        # print(ret)
+        res = pd.DataFrame(ret, columns=['url', 'rating', 'reviews'])
+        res.to_csv(f"ta_parsing_results_{k}.csv", encoding='utf-8')
 
 
+def batches(list, batch_size):
+    full_batch_count = len(list) // batch_size
+    for i in range(full_batch_count):
+        yield (i, list[i*batch_size : (i+1)*batch_size])
+    if batch_size * full_batch_count < len(list):
+        yield (full_batch_count, list[batch_size * full_batch_count])
 
 
 
 df = pd.read_csv('main_task.csv', sep=',')
-print(df['URL_TA'])
 
-
-results = []
-
-for i, url in enumerate(df['URL_TA']):
-    print(i)
-    htmltext = make_ta_request(url).encode('utf-8')
-    parser = html.HTMLParser(recover=True, encoding='utf-8')
-    tree = etree.fromstring(htmltext, parser)
-    results.append((get_review_ratings_from(tree), get_review_from(tree)))
-
-    if (i+1) % 500 == 0:
-      res = pd.DataFrame(results, columns=['rating', 'reviews'])
-      res.to_csv(f"ta_parsing_results_{i}.csv", encoding='utf-8')
-
-res = pd.DataFrame(results, columns=['rating', 'reviews'])
-
-res.to_csv("ta_parsing_results.csv", encoding='utf-8')
+for k, batch in batches(df['URL_TA'], 5000):
+    asyncio.run(process(k, batch))
+    time.sleep(60)
 
