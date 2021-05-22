@@ -64,7 +64,7 @@ def get_review_from(tree):
             if len(visit) == 2 :
                 visit_date = visit[1]
 
-        rating = get_rating(f)
+        rating = get_rating(review)
 
         usefull_count = None
         usefull = review.xpath('.//*[@class="numHelp "]')
